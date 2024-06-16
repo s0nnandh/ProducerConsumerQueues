@@ -6,7 +6,7 @@
 
 
 /// Threadsafe but flawed circular FIFO
-template<typename T, typename Alloc = std::allocator<T>>
+template<typename T, const int N, typename Alloc = std::allocator<T>>
 class BasicSPSC : private Alloc
 {
 public:
@@ -14,10 +14,10 @@ public:
     using allocator_traits = std::allocator_traits<Alloc>;
     using size_type = typename allocator_traits::size_type;
 
-    explicit BasicSPSC(size_type capacity, Alloc const& alloc = Alloc{})
+    explicit BasicSPSC(Alloc const& alloc = Alloc{})
         : Alloc{alloc}
-        , capacity_{capacity}
-        , ring_{allocator_traits::allocate(*this, capacity)}
+        , capacity_{N}
+        , ring_{allocator_traits::allocate(*this, N)}
     {}
 
     ~BasicSPSC() {
