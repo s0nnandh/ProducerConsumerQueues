@@ -35,7 +35,7 @@ public:
     }
 
     /// Returns the number of elements in the fifo
-    inline bool size() const noexcept {
+    inline size_type size() const noexcept {
         assert(popCursor_ <= pushCursor_);
         return pushCursor_ - popCursor_;
     }

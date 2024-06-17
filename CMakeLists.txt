@@ -59,44 +59,71 @@ endif()
 
 set(SOURCES src/helloWorld.cc)
 
+# add_link_options(-v -fsanitize=thread)
+
+add_executable(${PROJECT_NAME} ${SOURCES})
+
 # Global compilation options
-# add_compile_options(
-#     -Wall
-#     -Werror
-#     -Wextra
-#     -Wpedantic
-#     -pedantic-errors
-#     -Wno-unused-variable 
-#     -Wno-unused-parameter
-# )
+target_compile_options(${PROJECT_NAME}
+PUBLIC
+    -Wall
+    -Werror
+    -Wextra
+    -Wpedantic
+    -pedantic-errors
+    -Wno-unused-variable 
+    -Wno-unused-parameter
+)
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     # Debug-specific options
-    add_compile_options(
+    target_compile_options(${PROJECT_NAME}
+    PUBLIC
         -g
         -ferror-limit=1
-        -fsanitize=address,undefined
+        -fsanitize=thread,undefined
         -fno-omit-frame-pointer
     )
+    target_link_options(${PROJECT_NAME} PRIVATE -fsanitize=undefined -fsanitize=thread)
+    add_executable(${PROJECT_NAME}.tsan ${SOURCES})
+    target_include_directories(${PROJECT_NAME}.tsan PUBLIC ${PROJECT_SOURCE_DIR}/lib)
+    target_compile_options(${PROJECT_NAME}.tsan PRIVATE -fsanitize=thread)
+    target_link_options(${PROJECT_NAME}.tsan PRIVATE -fsanitize=thread)
+    target_link_libraries(${PROJECT_NAME}.tsan PRIVATE pthread)
 else()
     # Release-specific options
-    add_compile_options(
+    target_compile_options(${PROJECT_NAME}
+    PUBLIC
         -march=native
         -flto
     )
 endif()
 
-add_link_options(-v -fsanitize=address)
-
-add_executable(${PROJECT_NAME} ${SOURCES})
 
 target_include_directories(${PROJECT_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/lib)
 target_link_libraries(${PROJECT_NAME} pthread)
-# set(HEADER_FILES lib/BasicSPSC.hpp lib/BasicSPSCWithoutModulo.hpp)
-# add_executable(${PROJECT_NAME}.tsan ${SOURCES})
-# target_include_directories(${PROJECT_NAME}.tsan PUBLIC ${PROJECT_SOURCE_DIR}/lib)
-# target_compile_options(${PROJECT_NAME}.tsan PRIVATE -fsanitize=thread)
-# target_link_libraries(${PROJECT_NAME}.tsan PRIVATE pthread tsan)
+
+# Unit testing
+include(FetchContent)
+
+FetchContent_Declare(
+  googletest
+  GIT_REPOSITORY https://github.com/google/googletest.git
+  GIT_TAG        v1.14.0
+)
+
+FetchContent_MakeAvailable(googletest)
+
+add_executable(
+  tests
+  tst/unitTests.cpp
+)
+
+target_include_directories(tests PUBLIC ${PROJECT_SOURCE_DIR}/lib)
+target_compile_options(tests PRIVATE -fsanitize=undefined -fsanitize=thread)
+target_link_libraries(tests PRIVATE gtest gtest_main)
+target_link_options(tests PRIVATE -fsanitize=undefined -fsanitize=thread)
+
 
 message(STATUS "Build type: '${CMAKE_BUILD_TYPE}'")
 message(STATUS "C++ Compiler: ${CMAKE_CXX_COMPILER}")
