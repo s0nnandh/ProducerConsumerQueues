@@ -61,47 +61,49 @@ set(SOURCES src/helloWorld.cc)
 
 # add_link_options(-v -fsanitize=thread)
 
-add_executable(${PROJECT_NAME} ${SOURCES})
+# Define a function to add an executable with the given name and source files
+function(add_custom_executable target_name sources)
+    # Create the executable target
+    add_executable(${target_name} ${sources})
 
-# Global compilation options
-target_compile_options(${PROJECT_NAME}
-PUBLIC
-    -Wall
-    -Werror
-    -Wextra
-    -Wpedantic
-    -pedantic-errors
-    -Wno-unused-variable 
-    -Wno-unused-parameter
-)
-
-if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    # Debug-specific options
-    target_compile_options(${PROJECT_NAME}
+    # Global compilation options
+    target_compile_options(${target_name}
     PUBLIC
-        -g
-        -ferror-limit=1
-        -fsanitize=thread,undefined
-        -fno-omit-frame-pointer
+        -Wall
     )
-    target_link_options(${PROJECT_NAME} PRIVATE -fsanitize=undefined -fsanitize=thread)
-    add_executable(${PROJECT_NAME}.tsan ${SOURCES})
-    target_include_directories(${PROJECT_NAME}.tsan PUBLIC ${PROJECT_SOURCE_DIR}/lib)
-    target_compile_options(${PROJECT_NAME}.tsan PRIVATE -fsanitize=thread)
-    target_link_options(${PROJECT_NAME}.tsan PRIVATE -fsanitize=thread)
-    target_link_libraries(${PROJECT_NAME}.tsan PRIVATE pthread)
-else()
-    # Release-specific options
-    target_compile_options(${PROJECT_NAME}
-    PUBLIC
-        -march=native
-        -flto
-    )
-endif()
 
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+        # Debug-specific options
+        target_compile_options(${target_name}
+        PUBLIC
+            -g
+            -ferror-limit=1
+            -fsanitize=thread,undefined
+            -fno-omit-frame-pointer
+        )
+        target_link_options(${target_name} PRIVATE -fsanitize=undefined -fsanitize=thread)
 
-target_include_directories(${PROJECT_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/lib)
-target_link_libraries(${PROJECT_NAME} pthread)
+        # Add an additional executable for thread sanitizer
+        set(tsan_target_name ${target_name}.tsan)
+        add_executable(${tsan_target_name} ${sources})
+        target_include_directories(${tsan_target_name} PUBLIC ${PROJECT_SOURCE_DIR}/lib)
+        target_compile_options(${tsan_target_name} PRIVATE -fsanitize=thread)
+        target_link_options(${tsan_target_name} PRIVATE -fsanitize=thread)
+        target_link_libraries(${tsan_target_name} PRIVATE pthread)
+    else()
+        # Release-specific options
+        target_compile_options(${target_name}
+        PUBLIC
+            -march=native
+            -flto
+        )
+    endif()
+
+    # Include directories and link libraries
+    target_include_directories(${target_name} PUBLIC ${PROJECT_SOURCE_DIR}/lib)
+endfunction()
+
+add_custom_executable(${PROJECT_NAME} src/helloWorld.cc)
 
 # Unit testing
 include(FetchContent)
@@ -124,6 +126,21 @@ target_compile_options(tests PRIVATE -fsanitize=undefined -fsanitize=thread)
 target_link_libraries(tests PRIVATE gtest gtest_main)
 target_link_options(tests PRIVATE -fsanitize=undefined -fsanitize=thread)
 
+function(add_benchmark_executable target_name sources)
+    add_custom_executable(${target_name} ${sources})
+    target_link_libraries(${target_name} PRIVATE benchmark::benchmark benchmark::benchmark_main)
+endfunction()
+
+# Google Benchmark
+FetchContent_Declare(
+  benchmark
+  GIT_REPOSITORY https://github.com/google/benchmark.git
+  GIT_TAG v1.8.4 
+)
+
+FetchContent_MakeAvailable(benchmark)
+
+add_benchmark_executable(random_add_bench benchmarks/test_random_add.cc)
 
 message(STATUS "Build type: '${CMAKE_BUILD_TYPE}'")
 message(STATUS "C++ Compiler: ${CMAKE_CXX_COMPILER}")
