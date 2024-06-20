@@ -97,6 +97,13 @@ function(add_custom_executable target_name sources)
             -march=native
             -flto
         )
+        # Add an additional executable for thread sanitizer
+        set(tsan_target_name ${target_name}.tsan)
+        add_executable(${tsan_target_name} ${sources})
+        target_include_directories(${tsan_target_name} PUBLIC ${PROJECT_SOURCE_DIR}/lib)
+        target_compile_options(${tsan_target_name} PRIVATE -fsanitize=thread)
+        target_link_options(${tsan_target_name} PRIVATE -fsanitize=thread)
+        target_link_libraries(${tsan_target_name} PRIVATE pthread benchmark::benchmark benchmark::benchmark_main)
     endif()
 
     # Include directories and link libraries
@@ -141,6 +148,7 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(benchmark)
 
 add_benchmark_executable(random_add_bench benchmarks/test_random_add.cc)
+add_benchmark_executable(benchmark_queue benchmarks/benchmark_queue.cc)
 
 message(STATUS "Build type: '${CMAKE_BUILD_TYPE}'")
 message(STATUS "C++ Compiler: ${CMAKE_CXX_COMPILER}")
