@@ -6,7 +6,7 @@
 
 // TODO: Optimise for requires
 template<auto V>
-constexpr bool is_power_of_two = V && ((V & (V - 1)) == 0);
+static constexpr bool is_power_of_two = V && ((V & (V - 1)) == 0);
 
 
 /// Threadsafe but flawed circular FIFO

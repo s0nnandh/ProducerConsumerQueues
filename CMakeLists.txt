@@ -57,6 +57,9 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE ${buildType})
 endif()
 
+find_package(Boost 1.85 REQUIRED)
+include_directories(${Boost_INCLUDE_DIRS})
+
 set(SOURCES src/helloWorld.cc)
 
 # add_link_options(-v -fsanitize=thread)
@@ -89,21 +92,16 @@ function(add_custom_executable target_name sources)
         target_include_directories(${tsan_target_name} PUBLIC ${PROJECT_SOURCE_DIR}/lib)
         target_compile_options(${tsan_target_name} PRIVATE -fsanitize=thread)
         target_link_options(${tsan_target_name} PRIVATE -fsanitize=thread)
-        target_link_libraries(${tsan_target_name} PRIVATE pthread)
+        target_link_libraries(${tsan_target_name} PRIVATE pthread benchmark::benchmark benchmark::benchmark_main)
     else()
         # Release-specific options
         target_compile_options(${target_name}
         PUBLIC
+            -Wno-interference-size
             -march=native
+            -mtune=native
             -flto
         )
-        # Add an additional executable for thread sanitizer
-        set(tsan_target_name ${target_name}.tsan)
-        add_executable(${tsan_target_name} ${sources})
-        target_include_directories(${tsan_target_name} PUBLIC ${PROJECT_SOURCE_DIR}/lib)
-        target_compile_options(${tsan_target_name} PRIVATE -fsanitize=thread)
-        target_link_options(${tsan_target_name} PRIVATE -fsanitize=thread)
-        target_link_libraries(${tsan_target_name} PRIVATE pthread benchmark::benchmark benchmark::benchmark_main)
     endif()
 
     # Include directories and link libraries
@@ -135,7 +133,7 @@ target_link_options(tests PRIVATE -fsanitize=undefined -fsanitize=thread)
 
 function(add_benchmark_executable target_name sources)
     add_custom_executable(${target_name} ${sources})
-    target_link_libraries(${target_name} PRIVATE benchmark::benchmark benchmark::benchmark_main)
+    target_link_libraries(${target_name} PRIVATE benchmark::benchmark)
 endfunction()
 
 # Google Benchmark
@@ -149,6 +147,14 @@ FetchContent_MakeAvailable(benchmark)
 
 add_benchmark_executable(random_add_bench benchmarks/test_random_add.cc)
 add_benchmark_executable(benchmark_queue benchmarks/benchmark_queue.cc)
+
+add_executable(bench benchmarks/benchmark_queue.cc)
+target_link_libraries(bench PRIVATE benchmark::benchmark)
+target_include_directories(bench PUBLIC ${PROJECT_SOURCE_DIR}/lib)
+
+add_executable(custom_bench benchmarks/custom_benchmark.cc)
+target_link_libraries(custom_bench PRIVATE benchmark::benchmark)
+target_include_directories(custom_bench PUBLIC ${PROJECT_SOURCE_DIR}/lib)
 
 message(STATUS "Build type: '${CMAKE_BUILD_TYPE}'")
 message(STATUS "C++ Compiler: ${CMAKE_CXX_COMPILER}")

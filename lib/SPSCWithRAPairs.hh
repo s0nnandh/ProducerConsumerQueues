@@ -4,25 +4,26 @@
 #include <cassert>
 #include <memory>
 
-
 /// Threadsafe but flawed circular FIFO
-template<typename T, const int N, typename Alloc = std::allocator<T>>
-class BasicSPSC : private Alloc
+template<typename T, const int N, typename Alloc = std::allocator<T>> requires is_power_of_two<N>
+class SPSCWithRAPairs : private Alloc
 {
 public:
     using value_type = T;
     using allocator_traits = std::allocator_traits<Alloc>;
     using size_type = typename allocator_traits::size_type;
 
-    explicit BasicSPSC(Alloc const& alloc = Alloc{})
+    static constexpr int bit_mask = N - 1; 
+
+    explicit SPSCWithRAPairs(Alloc const& alloc = Alloc{})
         : Alloc{alloc}
         , capacity_{N}
         , ring_{allocator_traits::allocate(*this, N)}
     {}
 
-    ~BasicSPSC() {
+    ~SPSCWithRAPairs() {
         while(not empty()) {
-            ring_[popCursor_ % capacity_].~T();
+            ring_[popCursor_ & bit_mask].~T();
             ++popCursor_;
         }
         allocator_traits::deallocate(*this, ring_, capacity_);
@@ -30,8 +31,10 @@ public:
 
     /// Returns the number of elements in the fifo
     inline size_type size() const noexcept {
-        assert(popCursor_ <= pushCursor_);
-        return pushCursor_ - popCursor_;
+        size_type pushCursor = pushCursor_.load(std::memory_order_relaxed);
+        size_type popCursor = popCursor_.load(std::memory_order_relaxed);
+
+        return pushCursor - popCursor;
     }
 
     /// Returns whether the container has no elements
@@ -48,36 +51,53 @@ public:
     /// Push one object onto the fifo.
     /// @return `true` if the operation is successful; `false` if fifo is full.
     bool push(T const& value) {
-        if (full()) {
+        size_type pushCur = pushCursor_.load(std::memory_order_relaxed);
+        size_type popCur = popCursor_.load(std::memory_order_acquire);
+        if (full(pushCur, popCur)) {
             return false;
         }
-        new (&ring_[pushCursor_ % capacity_]) T(value);
-        ++pushCursor_;
+        new (&ring_[pushCur & bit_mask]) T(value);
+        pushCursor_.store(pushCur + 1, std::memory_order_release);
         return true;
     }
 
     /// Pop one object from the fifo.
     /// @return `true` if the pop operation is successful; `false` if fifo is empty.
     bool pop(T& value) {
-        if (empty()) {
+        size_type popCur = popCursor_.load(std::memory_order_relaxed);
+        size_type pushCur = pushCursor_.load(std::memory_order_acquire);
+        if (empty(pushCur, popCur)) {
             return false;
         }
-        value = ring_[popCursor_ % capacity_];
-        ring_[popCursor_ % capacity_].~T();
-        ++popCursor_;
+        value = *element(popCur);
+        element(popCur)->~T();
+        popCursor_.store(popCur + 1, std::memory_order_release);
         return true;
     }
 
 private:
-    size_type capacity_;
-    T* ring_;
+    inline size_type full(size_type &pushCursor, size_type &popCursor) const noexcept {
+        return (pushCursor - popCursor) == capacity_;
+    }
+    inline bool empty(size_type &pushCursor, size_type &popCursor) noexcept {
+        return pushCursor == popCursor;
+    }
+    T* element(size_type &cursor) noexcept {
+        return &ring_[cursor & bit_mask];
+    }
+
+private:
 
     using CursorType = std::atomic<size_type>;
     static_assert(CursorType::is_always_lock_free);
 
+    size_type capacity_;
+    T* ring_;
+
+
     /// Loaded and stored by the push thread; loaded by the pop thread
-    alignas(64) CursorType pushCursor_;
+    CursorType pushCursor_;
 
     /// Loaded and stored by the pop thread; loaded by the push thread
-    alignas(64) CursorType popCursor_;
+    CursorType popCursor_;
 };
