@@ -2,11 +2,14 @@ cmake_minimum_required(VERSION 3.5)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED true)
 set(CMAKE_CXX_EXTENSIONS OFF)
-SET(CMAKE_C_LINK_EXECUTABLE /opt/clang+llvm/clang+llvm-17.0.6/bin/lld)
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "arm64")
+    SET(CMAKE_C_LINK_EXECUTABLE /opt/clang+llvm/clang+llvm-17.0.6/bin/lld)
+endif()
 
 project(helloWorld)
 
 function(print_target_properties target)
+    message(STATUS "Computer architecture ${CMAKE_SYSTEM_PROCESSOR}")
     message(STATUS "Compilation properties for target ${target}:")
     
     # Get compile options
