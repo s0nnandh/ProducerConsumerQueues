@@ -5,7 +5,7 @@
 #include <memory>
 
 /// Threadsafe but flawed circular FIFO
-template<typename T, const int N, typename Alloc = std::allocator<T>> requires is_power_of_two<N>
+template<typename T, const int N = 1 << 17, typename Alloc = std::allocator<T>>
 class SPSCWithRAPairs : private Alloc
 {
 public:
@@ -13,7 +13,6 @@ public:
     using allocator_traits = std::allocator_traits<Alloc>;
     using size_type = typename allocator_traits::size_type;
 
-    static constexpr int bit_mask = N - 1; 
 
     explicit SPSCWithRAPairs(Alloc const& alloc = Alloc{})
         : Alloc{alloc}
@@ -87,6 +86,8 @@ private:
     }
 
 private:
+
+    static constexpr int bit_mask = N - 1; 
 
     using CursorType = std::atomic<size_type>;
     static_assert(CursorType::is_always_lock_free);

@@ -6,8 +6,7 @@
 #include "BasicSPSCWithoutModulo.hh"
 using namespace std;
 
-int main(int argc, char** argv)
-{
+int main(int argc, char** argv){
     using spsc10 = BasicSPSC<int, 10>;
     using spsc32 = BasicSPSCWithoutModulo<int, 131072>;
     std::unique_ptr<spsc10> spsc = std::make_unique<spsc10>();

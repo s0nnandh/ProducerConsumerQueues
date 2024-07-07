@@ -4,21 +4,15 @@
 #include <cassert>
 #include <memory>
 
-// TODO: Optimise for requires
-template<auto V>
-static constexpr bool is_power_of_two = V && ((V & (V - 1)) == 0);
-
 
 /// Threadsafe but flawed circular FIFO
-template<typename T, const int N, typename Alloc = std::allocator<T>> requires is_power_of_two<N>
+template<typename T, const int N = 1 << 17, typename Alloc = std::allocator<T>>
 class BasicSPSCWithoutModulo : private Alloc
 {
 public:
     using value_type = T;
     using allocator_traits = std::allocator_traits<Alloc>;
     using size_type = typename allocator_traits::size_type;
-
-    static constexpr int bit_mask = N - 1; 
 
     explicit BasicSPSCWithoutModulo(Alloc const& alloc = Alloc{})
         : Alloc{alloc}
@@ -75,6 +69,8 @@ public:
     }
 
 private:
+
+    static constexpr int bit_mask = N - 1; 
 
     using CursorType = std::atomic<size_type>;
     static_assert(CursorType::is_always_lock_free);

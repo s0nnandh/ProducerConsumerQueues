@@ -1,5 +1,6 @@
 #include "BasicSPSC.hh"
 #include "BasicSPSCWithoutModulo.hh"
+#include "SPSCLocal.hh"
 
 #include <gtest/gtest.h>
 

@@ -1,15 +1,19 @@
 #pragma once
 
-#include <stdatomic.h>
-// #include <atomic>
+#include <atomic>
 #include <cassert>
 #include <memory>
 #include <new>
 #include <iostream>
-#include <stdalign.h>
 
-/// Threadsafe but flawed circular FIFO
-template<typename T, const int N, typename Alloc = std::allocator<T>> requires is_power_of_two<N>
+#ifdef APPLE_H
+#define CACHE_LINE_SIZE 128
+#else
+#define CACHE_LINE_SIZE 64
+#endif
+
+
+template<typename T, const int N = 1 << 17, typename Alloc = std::allocator<T>>
 class SPSCWithoutFS : private Alloc
 {
 public:
@@ -91,6 +95,9 @@ private:
 
 private:
 
+    static constexpr int bit_mask = N - 1; 
+
+
     using CursorType = std::atomic<size_type>;
     static_assert(CursorType::is_always_lock_free);
 
@@ -98,16 +105,15 @@ private:
     T* ring_;
 
     /// Loaded and stored by the push thread; loaded by the pop thread
-    alignas(128) CursorType pushCursor_;
+    alignas(CACHE_LINE_SIZE) CursorType pushCursor_;
 
     // char push_padding[128 - sizeof(CursorType)];
     
     /// Loaded and stored by the pop thread; loaded by the push thread
-    alignas(128) CursorType popCursor_;
+    alignas(CACHE_LINE_SIZE) CursorType popCursor_;
 
     // char pop_padding[128 - sizeof(CursorType)];
 
-    char padding_[128 - sizeof(size_type)];
+    char padding_[CACHE_LINE_SIZE - sizeof(size_type)];
 
-    static constexpr int bit_mask = N - 1; 
 };

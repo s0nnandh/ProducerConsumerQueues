@@ -60,7 +60,13 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE ${buildType})
 endif()
 
-find_package(Boost 1.85 REQUIRED)
+SET(BOOST_VERSION 1.74)
+
+if (CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64")
+	SET(BOOST_VERSION 1.85)
+endif()
+
+find_package(Boost ${BOOST_VERSION} REQUIRED)
 include_directories(${Boost_INCLUDE_DIRS})
 
 set(SOURCES src/helloWorld.cc)
@@ -76,6 +82,7 @@ function(add_custom_executable target_name sources)
     target_compile_options(${target_name}
     PUBLIC
         -Wall
+        -fno-omit-frame-pointer
     )
 
     if(CMAKE_BUILD_TYPE STREQUAL "Debug")
@@ -85,22 +92,20 @@ function(add_custom_executable target_name sources)
             -g
             -ferror-limit=1
             -fsanitize=thread,undefined
-            -fno-omit-frame-pointer
         )
         target_link_options(${target_name} PRIVATE -fsanitize=undefined -fsanitize=thread)
 
         # Add an additional executable for thread sanitizer
-        set(tsan_target_name ${target_name}.tsan)
-        add_executable(${tsan_target_name} ${sources})
-        target_include_directories(${tsan_target_name} PUBLIC ${PROJECT_SOURCE_DIR}/lib)
-        target_compile_options(${tsan_target_name} PRIVATE -fsanitize=thread)
-        target_link_options(${tsan_target_name} PRIVATE -fsanitize=thread)
-        target_link_libraries(${tsan_target_name} PRIVATE pthread benchmark::benchmark benchmark::benchmark_main)
+        # set(tsan_target_name ${target_name}.tsan)
+        # add_executable(${tsan_target_name} ${sources})
+        # target_include_directories(${tsan_target_name} PUBLIC ${PROJECT_SOURCE_DIR}/lib)
+        # target_compile_options(${tsan_target_name} PRIVATE -fsanitize=thread)
+        # target_link_options(${tsan_target_name} PRIVATE -fsanitize=thread)
+        # target_link_libraries(${tsan_target_name} PRIVATE pthread benchmark::benchmark benchmark::benchmark_main)
     else()
         # Release-specific options
         target_compile_options(${target_name}
         PUBLIC
-            -Wno-interference-size
             -march=native
             -mtune=native
             -flto
@@ -108,10 +113,10 @@ function(add_custom_executable target_name sources)
     endif()
 
     # Include directories and link libraries
-    target_include_directories(${target_name} PUBLIC ${PROJECT_SOURCE_DIR}/lib)
+    # target_include_directories(${target_name} PUBLIC ${PROJECT_SOURCE_DIR}/lib)
 endfunction()
 
-add_custom_executable(${PROJECT_NAME} src/helloWorld.cc)
+# add_custom_executable(${PROJECT_NAME} src/helloWorld.cc)
 
 # Unit testing
 include(FetchContent)
@@ -129,17 +134,20 @@ add_executable(
   tst/unitTests.cpp
 )
 
-target_include_directories(tests PUBLIC ${PROJECT_SOURCE_DIR}/lib)
+target_include_directories(tests PRIVATE ${PROJECT_SOURCE_DIR}/lib)
 target_compile_options(tests PRIVATE -fsanitize=undefined -fsanitize=thread)
 target_link_libraries(tests PRIVATE gtest gtest_main)
 target_link_options(tests PRIVATE -fsanitize=undefined -fsanitize=thread)
 
 function(add_benchmark_executable target_name sources)
     add_custom_executable(${target_name} ${sources})
-    target_link_libraries(${target_name} PRIVATE benchmark::benchmark)
+    target_link_libraries(${target_name} PRIVATE -v benchmark::benchmark)
+    target_include_directories(${target_name} PUBLIC ${PROJECT_SOURCE_DIR}/lib)
 endfunction()
 
 # Google Benchmark
+if (CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64")
+message("Fetching google benchmark")
 FetchContent_Declare(
   benchmark
   GIT_REPOSITORY https://github.com/google/benchmark.git
@@ -147,19 +155,26 @@ FetchContent_Declare(
 )
 
 FetchContent_MakeAvailable(benchmark)
+else()
+    message("Using local benchmark")
+	find_package(benchmark REQUIRED)
+endif()
 
-add_benchmark_executable(random_add_bench benchmarks/test_random_add.cc)
+# add_benchmark_executable(random_add_bench benchmarks/test_random_add.cc)
 add_benchmark_executable(benchmark_queue benchmarks/benchmark_queue.cc)
+add_benchmark_executable(basic_spsc_queue src/BasicSPSC.cc)
+add_benchmark_executable(basic_spsc_without_modulo_queue src/BasicSPSCWithoutModulo.cc)
+add_benchmark_executable(spsc_ra_pairs src/SPSCWithRAPairs.cc)
+add_benchmark_executable(spsc_without_fs src/SPSCWithoutFS.cc)
+add_benchmark_executable(spsc_local_cache src/SPSCLocal.cc)
+add_benchmark_executable(rigtorp_spsc src/rigtorp.cc)
+
 
 add_executable(bench benchmarks/benchmark_queue.cc)
 target_link_libraries(bench PRIVATE benchmark::benchmark)
 target_include_directories(bench PUBLIC ${PROJECT_SOURCE_DIR}/lib)
 
-add_executable(custom_bench benchmarks/custom_benchmark.cc)
-target_link_libraries(custom_bench PRIVATE benchmark::benchmark)
-target_include_directories(custom_bench PUBLIC ${PROJECT_SOURCE_DIR}/lib)
-
 message(STATUS "Build type: '${CMAKE_BUILD_TYPE}'")
 message(STATUS "C++ Compiler: ${CMAKE_CXX_COMPILER}")
 message(STATUS "C++ Compiler Version: ${CMAKE_CXX_COMPILER_VERSION}")
-print_target_properties(${PROJECT_NAME})
+# print_target_properties(${PROJECT_NAME})

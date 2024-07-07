@@ -5,8 +5,7 @@
 #include <memory>
 
 
-/// Threadsafe but flawed circular FIFO
-template<typename T, const int N, typename Alloc = std::allocator<T>>
+template<typename T, const int N = 1 << 17, typename Alloc = std::allocator<T>>
 class BasicSPSC : private Alloc
 {
 public:
@@ -76,8 +75,8 @@ private:
     static_assert(CursorType::is_always_lock_free);
 
     /// Loaded and stored by the push thread; loaded by the pop thread
-    alignas(64) CursorType pushCursor_;
+    CursorType pushCursor_;
 
     /// Loaded and stored by the pop thread; loaded by the push thread
-    alignas(64) CursorType popCursor_;
+    CursorType popCursor_;
 };

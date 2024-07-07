@@ -1,16 +1,37 @@
 #pragma once
 
+/*
+
+
+
+-------------------------
+------------------------
+
+
+TO DEBUG 
+
+
+
+--------------------------
+-------------------------
+
+
+
+
+
+
+
+
+
+
+
+*/
+
 #include <atomic>
 #include <cassert>
 #include <memory>
 #include <new>
 #include <iostream>
-
-#ifdef APPLE_H
-#define CACHE_LINE_SIZE 128
-#else
-#define CACHE_LINE_SIZE 64
-#endif
 
 /// Threadsafe but flawed circular FIFO
 template<typename T, const int N = 1 << 17, typename Alloc = std::allocator<T>>
@@ -57,7 +78,7 @@ public:
     /// Push one object onto the fifo.
     /// @return `true` if the operation is successful; `false` if fifo is full.
     bool push(const T& value) {
-        size_type pushCur = pushCursor_.load(std::memory_order_relaxed);
+        auto pushCur = pushCursor_.load(std::memory_order_relaxed);
         if (full(pushCur, popLocal)) {
             popLocal = popCursor_.load(std::memory_order_acquire);
             if (full(pushCur, popLocal)) {
@@ -72,8 +93,8 @@ public:
     /// Pop one object from the fifo.
     /// @return `true` if the pop operation is successful; `false` if fifo is empty.
     bool pop(T& value) {
-        size_type popCur = popCursor_.load(std::memory_order_relaxed);
-        if (empty(pushLocal, popCur)) {
+        auto popCur = popCursor_.load(std::memory_order_relaxed);
+        if (full(pushLocal, popCur)) {
             pushLocal = pushCursor_.load(std::memory_order_acquire);
             if (empty(pushLocal, popCur)) {
                 return false;
@@ -86,13 +107,13 @@ public:
     }
 
 private:
-    inline auto full(size_type pushCursor, size_type popCursor) const noexcept {
+    inline auto full(const auto &pushCursor, const auto &popCursor) const noexcept {
         return (pushCursor - popCursor) == capacity_;
     }
-    inline bool empty(size_type pushCursor, size_type popCursor) const noexcept {
+    inline bool empty(const auto &pushCursor, const auto &popCursor) const noexcept {
         return pushCursor == popCursor;
     }
-    inline auto element(size_type cursor) const noexcept {
+    inline auto element(const auto &cursor) const noexcept {
         return &ring_[cursor & bit_mask];
     }
 
@@ -107,19 +128,19 @@ private:
     T* ring_;
 
     /// Loaded and stored by the push thread; loaded by the pop thread
-    alignas(CACHE_LINE_SIZE) CursorType pushCursor_;
+    alignas(128) CursorType pushCursor_;
 
-    alignas(CACHE_LINE_SIZE) size_type popLocal{};
+    alignas(128) size_type pushLocal;
 
     // char push_padding[128 - sizeof(CursorType)];
     
     /// Loaded and stored by the pop thread; loaded by the push thread
-    alignas(CACHE_LINE_SIZE) CursorType popCursor_;
+    alignas(128) CursorType popCursor_;
 
-    alignas(CACHE_LINE_SIZE) size_type pushLocal{};
+    alignas(128) size_type popLocal;
 
     // char pop_padding[128 - sizeof(CursorType)];
 
-    char padding_[CACHE_LINE_SIZE - sizeof(size_type)];
+    char padding_[128 - sizeof(size_type)];
 
 };
