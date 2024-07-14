@@ -60,7 +60,7 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE ${buildType})
 endif()
 
-SET(BOOST_VERSION 1.74)
+SET(BOOST_VERSION 1.71)
 
 if (CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64")
 	SET(BOOST_VERSION 1.85)
@@ -90,7 +90,6 @@ function(add_custom_executable target_name sources)
         target_compile_options(${target_name}
         PUBLIC
             -g
-            -ferror-limit=1
             -fsanitize=thread,undefined
         )
         target_link_options(${target_name} PRIVATE -fsanitize=undefined -fsanitize=thread)
