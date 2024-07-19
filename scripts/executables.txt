@@ -1,0 +1,6 @@
+../release/basic_spsc_queue
+../release/basic_spsc_without_modulo_queue
+../release/spsc_ra_pairs
+../release/spsc_without_fs
+../release/spsc_local_cache
+../release/rigtorp_spsc

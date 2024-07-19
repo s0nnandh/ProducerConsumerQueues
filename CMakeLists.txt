@@ -85,6 +85,10 @@ function(add_custom_executable target_name sources)
         -fno-omit-frame-pointer
     )
 
+    if (CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64")
+        target_compile_definitions(${target_name} PRIVATE APPLE_H)
+    endif() 
+
     if(CMAKE_BUILD_TYPE STREQUAL "Debug")
         # Debug-specific options
         target_compile_options(${target_name}
@@ -170,6 +174,9 @@ add_benchmark_executable(rigtorp_spsc src/rigtorp.cc)
 
 
 add_executable(bench benchmarks/benchmark_queue.cc)
+if (CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64")
+    target_compile_definitions(bench PRIVATE APPLE_H)
+endif() 
 target_link_libraries(bench PRIVATE benchmark::benchmark)
 target_include_directories(bench PUBLIC ${PROJECT_SOURCE_DIR}/lib)
 
